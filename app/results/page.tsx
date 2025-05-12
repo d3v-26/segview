@@ -13,7 +13,7 @@ const Results = () => {
   const grace = searchParams.get("grace") === "true";
   const domino = searchParams.get("domino") === "true";
   const dominopp = searchParams.get("dominopp") === "true";
-
+  const server = process.env.server || "http://localhost:5500";
   const [image, setImage] = useState<NVImage | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGz, setIsGz] = useState(false);
@@ -114,7 +114,7 @@ const Results = () => {
       if (update.progress === 100) fetchGraceOutput();
     });
 
-    await fetch("http://localhost:5500/predict_grace", {
+    await fetch(server + "/predict_grace", {
       method: "POST",
       body: createFormData(),
     });
@@ -133,7 +133,7 @@ const Results = () => {
       if (update.progress === 100) fetchDominoOutput();
     });
 
-    await fetch("http://localhost:5500/predict_domino", {
+    await fetch(server + "/predict_domino", {
       method: "POST",
       body: createFormData(),
     });
@@ -152,7 +152,7 @@ const Results = () => {
       if (update.progress === 100) fetchDppOutput();
     });
 
-    await fetch("http://localhost:5500/predict_dpp", {
+    await fetch(server + "/predict_dpp", {
       method: "POST",
       body: createFormData(),
     });
@@ -171,9 +171,9 @@ const Results = () => {
 
   const fetchGraceOutput = async () => {
     console.log("Fetching GRACE output...");
-    const blob = await (await fetch("http://localhost:5500/goutput")).blob();
+    const blob = await (await fetch(server + "/goutput")).blob();
     const image = await NVImage.loadFromFile({
-      file: new File([await blob.arrayBuffer()], "GraceInference.nii.gz"),
+      file: new File([await blob.arrayBuffer()],isGz ? "GraceInference.nii.gz" : "GraceInference.nii"),
       colormap: "jet",
       opacity: 1,
     });
@@ -183,9 +183,9 @@ const Results = () => {
 
   const fetchDominoOutput = async () => {
     console.log("Fetching DOMINO output...");
-    const blob = await (await fetch("http://localhost:5500/doutput")).blob();
+    const blob = await (await fetch(server + "/doutput")).blob();
     const image = await NVImage.loadFromFile({
-      file: new File([await blob.arrayBuffer()], "DominoInference.nii.gz"),
+      file: new File([await blob.arrayBuffer()], isGz ? "DominoInference.nii.gz" : "DominoInference.nii"),
       colormap: "jet",
       opacity: 1,
     });
@@ -195,9 +195,9 @@ const Results = () => {
 
   const fetchDppOutput = async () => {
     console.log("Fetching DOMINO++ output...");
-    const blob = await (await fetch("http://localhost:5500/dppoutput")).blob();
+    const blob = await (await fetch(server + "/dppoutput")).blob();
     const image = await NVImage.loadFromFile({
-      file: new File([await blob.arrayBuffer()], "DominoPPInference.nii.gz"),
+      file: new File([await blob.arrayBuffer()], isGz ? "DominoPPInference.nii.gz" : "DominoPPInference.nii"),
       colormap: "jet",
       opacity: 1,
     });
