@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { NVImage } from "@niivue/niivue";
 import pako from "pako";
 import NiiVueComponent from "../components/niivue";
-import socket from "./socket";
+import { createSocket } from "./socket";
+import crypto from "crypto";
 
 const Results = () => {
   const searchParams = useSearchParams();
@@ -17,6 +18,7 @@ const Results = () => {
   const [image, setImage] = useState<NVImage | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGz, setIsGz] = useState(false);
+  const secret = process.env.NEXT_PUBLIC_API_SECRET || "default_secret";
 
   const [graceProgress, setGraceProgress] = useState({ message: "", progress: 0 });
   const [dominoProgress, setDominoProgress] = useState({ message: "", progress: 0 });
@@ -32,6 +34,8 @@ const Results = () => {
   const hasStartedGrace = useRef(false);
   const hasStartedDomino = useRef(false);
   const hasStartedDpp = useRef(false);
+
+  const socket = createSocket();
 
   useEffect(() => {
     if (!socket.connected) socket.connect();
@@ -114,10 +118,23 @@ const Results = () => {
       if (update.progress === 100) fetchGraceOutput();
     });
 
-    await fetch(server + "/predict_grace", {
+    const ts = Date.now().toString();
+    const signature = crypto.createHmac("sha256", secret).update(ts).digest("hex");
+
+    const response = await fetch(server + "/predict_grace", {
       method: "POST",
       body: createFormData(),
+      headers: {
+        "X-Signature": signature,
+        "X-Timestamp": ts,
+      },
     });
+
+    if (!response.ok) {
+      console.error("Error in GRACE request:", response.statusText);
+      setGraceProgress({ message: "Error in GRACE request", progress: 0 });
+      return;
+    }
     console.log("GRACE request sent.");
   };
 
@@ -133,10 +150,23 @@ const Results = () => {
       if (update.progress === 100) fetchDominoOutput();
     });
 
-    await fetch(server + "/predict_domino", {
+    const ts = Date.now().toString();
+    const signature = crypto.createHmac("sha256", secret).update(ts).digest("hex");
+
+    const response = await fetch(server + "/predict_domino", {
       method: "POST",
       body: createFormData(),
+      headers: {
+        "X-Signature": signature,
+        "X-Timestamp": ts,
+      },
     });
+
+    if (!response.ok) {
+      console.error("Error in DOMINO request:", response.statusText);
+      setDominoProgress({ message: "Error in DOMINO request", progress: 0 });
+      return;
+    }
     console.log("DOMINO request sent.");
   };
 
@@ -152,10 +182,22 @@ const Results = () => {
       if (update.progress === 100) fetchDppOutput();
     });
 
-    await fetch(server + "/predict_dpp", {
+    const ts = Date.now().toString();
+    const signature = crypto.createHmac("sha256", secret).update(ts).digest("hex");
+
+    const response = await fetch(server + "/predict_dpp", {
       method: "POST",
       body: createFormData(),
+      headers: {
+        "X-Signature": signature,
+        "X-Timestamp": ts,
+      },
     });
+    if (!response.ok) {
+      console.error("Error in DOMINO++ request:", response.statusText);
+      setDppProgress({ message: "Error in DOMINO++ request", progress: 0 });
+      return;
+    }
     console.log("DOMINO++ request sent.");
   };
 
@@ -171,7 +213,22 @@ const Results = () => {
 
   const fetchGraceOutput = async () => {
     console.log("Fetching GRACE output...");
-    const blob = await (await fetch(server + "/goutput")).blob();
+    const ts = Date.now().toString();
+    const signature = crypto.createHmac("sha256", secret).update(ts).digest("hex");
+
+    const response = await fetch(server + "/goutput", {
+      method: "GET",
+      headers: {
+        "X-Signature": signature,
+        "X-Timestamp": ts,
+      },
+    });
+    if (!response.ok) {
+      console.error("Error in GRACE output request:", response.statusText);
+      setGraceProgress({ message: "Error in GRACE output request", progress: 0 });
+      return;
+    }
+    const blob = await (response).blob();
     const image = await NVImage.loadFromFile({
       file: new File([await blob.arrayBuffer()],isGz ? "GraceInference.nii.gz" : "GraceInference.nii"),
       colormap: "jet",
@@ -183,7 +240,21 @@ const Results = () => {
 
   const fetchDominoOutput = async () => {
     console.log("Fetching DOMINO output...");
-    const blob = await (await fetch(server + "/doutput")).blob();
+    const ts = Date.now().toString();
+    const signature = crypto.createHmac("sha256", secret).update(ts).digest("hex");
+    const response = await fetch(server + "/doutput", {
+      method: "GET",
+      headers: {
+        "X-Signature": signature,
+        "X-Timestamp": ts,
+      },
+    });
+    if (!response.ok) {
+      console.error("Error in DOMINO output request:", response.statusText);
+      setDominoProgress({ message: "Error in DOMINO output request", progress: 0 });
+      return;
+    }
+    const blob = await (response).blob();
     const image = await NVImage.loadFromFile({
       file: new File([await blob.arrayBuffer()], isGz ? "DominoInference.nii.gz" : "DominoInference.nii"),
       colormap: "jet",
@@ -195,7 +266,21 @@ const Results = () => {
 
   const fetchDppOutput = async () => {
     console.log("Fetching DOMINO++ output...");
-    const blob = await (await fetch(server + "/dppoutput")).blob();
+    const ts = Date.now().toString();
+    const signature = crypto.createHmac("sha256", secret).update(ts).digest("hex");
+    const response = await fetch(server + "/dppoutput", {
+      method: "GET",
+      headers: {
+        "X-Signature": signature,
+        "X-Timestamp": ts,
+      },
+    });
+    if (!response.ok) {
+      console.error("Error in DOMINO++ output request:", response.statusText);
+      setDppProgress({ message: "Error in DOMINO++ output request", progress: 0 });
+      return;
+    }
+    const blob = await (response).blob();
     const image = await NVImage.loadFromFile({
       file: new File([await blob.arrayBuffer()], isGz ? "DominoPPInference.nii.gz" : "DominoPPInference.nii"),
       colormap: "jet",
